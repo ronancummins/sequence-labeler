@@ -21,7 +21,13 @@ def read_input_files(file_paths):
     Will split file_paths on comma, reading from multiple files.
     Uses the first column as the input word and the last column as the label.
     Returns a list, with one element per sentence. Each element is a tuple with two lists: the words and the labels.
+
+    Also catch sentences beginning with answer ids and essay score and store (each sentence is an essay in this format)
+	e.g. TR634*0100*2000*02		15
+
     """
+    ans=0
+    essay_score=0
     sentences = []
     for file_path in file_paths.strip().split(","):
         with open(file_path, "r") as f:
@@ -30,13 +36,18 @@ def read_input_files(file_paths):
                 if len(line.strip()) > 0:
                     line_parts = line.strip().split()
                     assert(len(line_parts) >= 2)
-                    words.append(line_parts[0])
-                    labels.append(line_parts[-1])
+		    if not (re.match("(TR|TE)[0-9]*\*[0-9]*\*[0-9]*\*[0-9]*",line_parts[0])):
+                    	words.append(line_parts[0])
+                    	labels.append(line_parts[-1])
+		    else:
+			essay_score = float(line_parts[1])
+			ans = ans +1		
                 elif len(line.strip()) == 0 and len(words) > 0:
-                    sentences.append((words, labels))
+                    sentences.append((words, labels, essay_score))
                     words, labels = [], []
             if len(words) > 0:
                 raise ValueError("The format expects an empty line at the end of the file in: " + file_path)
+    print "answers read : %s" % ( ans) 
     return sentences
 
 
@@ -79,11 +90,10 @@ def create_feature_matrices_for_batch(sentences, sentence_ids_in_batch, word2id,
                    [map_text_to_ids(" ".join(list(word)), char2id, "<w>", "</w>", "<cunk>", lowercase=config["lowercase_chars"], replace_digits=config["replace_digits"]) for word in sentences[sentence_id][0]] + \
                    [map_text_to_ids("</s>", char2id, "<w>", "</w>", "<cunk>")]
         label_ids = map_text_to_ids(" ".join(sentences[sentence_id][1]), label2id)
-
+	essay_score = sentences[sentence_id][2]
         assert(len(char_ids) == len(word_ids))
-        assert(len(char_ids) == len(label_ids) + 2)
-
-        batch_data.append((word_ids, char_ids, label_ids))
+        assert(len(char_ids) == len(label_ids) + 2) 
+        batch_data.append((word_ids, char_ids, label_ids, essay_score))
 
     allowed_word_length = config["allowed_word_length"] if config["allowed_word_length"] > 0 else 100000000
     max_word_length = min(numpy.array([[len(char_ids) for char_ids in batch_data[i][1]] for i in range(len(batch_data))]).max(), allowed_word_length)
@@ -93,6 +103,7 @@ def create_feature_matrices_for_batch(sentences, sentence_ids_in_batch, word2id,
     char_ids = numpy.zeros((len(sentence_ids_in_batch), sentence_length, max_word_length), dtype=numpy.int32)
     char_mask = numpy.zeros((len(sentence_ids_in_batch), sentence_length, max_word_length), dtype=numpy.int32)
     label_ids = numpy.zeros((len(sentence_ids_in_batch), sentence_length-2), dtype=numpy.int32)
+    essay_scores = numpy.zeros(len(sentence_ids_in_batch), dtype=numpy.int32)
 
     for i in range(len(sentence_ids_in_batch)):
         for j in range(sentence_length):
@@ -103,8 +114,10 @@ def create_feature_matrices_for_batch(sentences, sentence_ids_in_batch, word2id,
                 char_mask[i][j][k] = 1
         for j in range(sentence_length-2):
             label_ids[i][j] = batch_data[i][2][j]
+	essay_scores[i] = batch_data[i][3]
 
-    return word_ids, char_ids, char_mask, label_ids
+
+    return word_ids, char_ids, char_mask, label_ids, essay_scores
 
 
 
@@ -114,17 +127,20 @@ def process_sentences(sequencelabeler, sentences, testing, learningrate, name, m
     """
     evaluator = SequenceLabelingEvaluator(main_label_id, label2id, config["conll_eval"])
     batches_of_sentence_ids = create_batches_of_sentence_ids(sentences, config["max_batch_size"])
+    
     if testing == False:
         random.shuffle(batches_of_sentence_ids)
 
     for sentence_ids_in_batch in batches_of_sentence_ids:
-        word_ids, char_ids, char_mask, label_ids = create_feature_matrices_for_batch(sentences, sentence_ids_in_batch, word2id, char2id, label2id, singletons, config)
+	sys.stdout.flush()
+        word_ids, char_ids, char_mask, label_ids, essay_scores = create_feature_matrices_for_batch(sentences, sentence_ids_in_batch, word2id, char2id, label2id, singletons, config)
 
         if testing == True:
-            cost, predicted_labels = sequencelabeler.test(word_ids, char_ids, char_mask, label_ids)
+            cost, predicted_labels, predicted_scores = sequencelabeler.test(word_ids, char_ids, char_mask, label_ids, essay_scores)
         else:
-            cost, predicted_labels = sequencelabeler.train(word_ids, char_ids, char_mask, label_ids, learningrate)
-        evaluator.append_data(cost, predicted_labels, word_ids, label_ids)
+            cost, predicted_labels, predicted_scores = sequencelabeler.train(word_ids, char_ids, char_mask, label_ids, essay_scores, learningrate)
+	evaluator.append_data(cost, predicted_labels, word_ids, label_ids)
+	evaluator.append_aes_data(predicted_scores.tolist(), essay_scores.tolist())
         
         word_ids, char_ids, char_mask, label_ids = None, None, None, None
         while config["garbage_collection"] == True and gc.collect() > 0:
@@ -186,6 +202,7 @@ def generate_word2id_dictionary(texts, min_freq=-1, insert_words=None, lowercase
     if insert_words is not None:
         for word in insert_words:
             word2id[word] = len(word2id)
+	    
 
     word_count_list = counter.most_common()
 
@@ -275,6 +292,7 @@ def run_experiment(config_path):
                                                         insert_words=["<unk>", "<s>", "</s>"], 
                                                         lowercase=config["lowercase_words"], 
                                                         replace_digits=config["replace_digits"])
+
         label2id = generate_word2id_dictionary([" ".join(sentence[1]) for sentence in sentences_train])
         char2id = generate_word2id_dictionary([" ".join([" ".join(list(word)) for word in sentence[0]]) for sentence in sentences_train], 
                                                         min_freq=-1, 
@@ -282,6 +300,7 @@ def run_experiment(config_path):
                                                         lowercase=config["lowercase_words"], 
                                                         replace_digits=config["replace_digits"])
         singletons = find_singletons(sentences_train) if config["use_singletons"] == True else None
+
 
     if config["load"] is not None and len(config["load"]) > 0:
         sequencelabeler = SequenceLabeler.load(config["load"])
@@ -323,6 +342,7 @@ def run_experiment(config_path):
         best_selector_value = 0.0
         learningrate = config["learningrate"]
         for epoch in xrange(config["epochs"]):
+            sys.stdout.flush()
             print("EPOCH: " + str(epoch))
             print("learningrate: " + str(learningrate))
             random.shuffle(sentences_train)

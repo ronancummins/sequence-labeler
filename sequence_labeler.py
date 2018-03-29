@@ -21,6 +21,7 @@ class SequenceLabeler(object):
         char_ids = theano.tensor.itensor3('char_ids')
         char_mask = theano.tensor.ftensor3('char_mask')
         label_ids = theano.tensor.imatrix('label_ids')
+	essay_scores = theano.tensor.fvector('essay_scores')
         learningrate = theano.tensor.fscalar('learningrate')
         is_training = theano.tensor.iscalar('is_training')
 
@@ -74,8 +75,8 @@ class SequenceLabeler(object):
 
         if config["lmcost_gamma"] > 0.0:
             lmcost_max_vocab_size = min(self.config["n_words"], self.config["lmcost_max_vocab_size"])
-            cost += config["lmcost_gamma"] * self.construct_lmcost(recurrent_forward[:,:-1,:], config["word_recurrent_size"], word_ids[:,1:], self.config["lmcost_layer_size"], lmcost_max_vocab_size, "lmcost_forward")
-            cost += config["lmcost_gamma"] * self.construct_lmcost(recurrent_backward[:,1:,:], config["word_recurrent_size"], word_ids[:,:-1], self.config["lmcost_layer_size"], lmcost_max_vocab_size, "lmcost_backward")
+            cost += (1.0 - config["aescost_gamma"]) * config["lmcost_gamma"] * self.construct_lmcost(recurrent_forward[:,:-1,:], config["word_recurrent_size"], word_ids[:,1:], self.config["lmcost_layer_size"], lmcost_max_vocab_size, "lmcost_forward")
+            cost += (1.0 - config["aescost_gamma"]) * config["lmcost_gamma"] * self.construct_lmcost(recurrent_backward[:,1:,:], config["word_recurrent_size"], word_ids[:,:-1], self.config["lmcost_layer_size"], lmcost_max_vocab_size, "lmcost_backward")
 
         processed_tensor = theano.tensor.concatenate([recurrent_forward, recurrent_backward], axis=2)
         processed_tensor_size = config["word_recurrent_size"] * 2
@@ -83,6 +84,15 @@ class SequenceLabeler(object):
         if config["narrow_layer_size"] > 0:
             processed_tensor = recurrence.create_feedforward(processed_tensor, processed_tensor_size, config["narrow_layer_size"], "tanh", fn_create_parameter_matrix=self.create_parameter_matrix, name="narrow_ff")
             processed_tensor_size = config["narrow_layer_size"]
+
+	
+	if config["aescost_gamma"] > 0.0:
+	    processed_tensor_aes = theano.tensor.mean(processed_tensor, axis=1)	# mean pooling
+	    W_output_aes = self.create_parameter_matrix('W_output_aes', (processed_tensor_size))
+	    predicted_scores = 1.0 + theano.tensor.nnet.nnet.sigmoid(theano.tensor.dot(processed_tensor_aes, W_output_aes))*19.0	#score range 1-20
+	    cost += config["aescost_gamma"] * theano.tensor.sum((predicted_scores-essay_scores)**2.0)	#squared error over batch
+	else:
+	    predicted_scores = essay_scores
 
         W_output = self.create_parameter_matrix('W_output', (processed_tensor_size, config["n_labels"]))
         bias_output = self.create_parameter_matrix('bias_output', (config["n_labels"],))
@@ -98,7 +108,8 @@ class SequenceLabeler(object):
             output_probs_ = theano.tensor.nnet.softmax(output.reshape((word_ids.shape[0]*(word_ids.shape[1]-2), config["n_labels"])))
             output_probs = output_probs_.reshape((word_ids.shape[0], (word_ids.shape[1]-2), config["n_labels"]))
             predicted_labels = theano.tensor.argmax(output_probs, axis=2)
-            cost += theano.tensor.nnet.categorical_crossentropy(output_probs_, label_ids.reshape((-1,))).sum()
+	    if config["aescost_gamma"] < 1.0:
+            	cost += (1.0 - config["aescost_gamma"])*theano.tensor.nnet.categorical_crossentropy(output_probs_, label_ids.reshape((-1,))).sum()
 
         gradients = theano.tensor.grad(cost, self.params.values(), disconnected_inputs='ignore')
         if config["opt_strategy"] == "adadelta":
@@ -107,12 +118,14 @@ class SequenceLabeler(object):
             updates = lasagne.updates.adam(gradients, self.params.values(), learningrate)
         elif config["opt_strategy"] == "sgd":
             updates = lasagne.updates.sgd(gradients, self.params.values(), learningrate)
+	elif config["opt_strategy"] == "rmsprop":
+	    updates = lasagne.updates.rmsprop(gradients, self.params.values(), learningrate)
         else:
             raise ValueError("Unknown optimisation strategy: " + str(config["opt_strategy"]))
 
-        input_vars_train = [word_ids, char_ids, char_mask, label_ids, learningrate]
-        input_vars_test = [word_ids, char_ids, char_mask, label_ids]
-        output_vars = [cost, predicted_labels]
+        input_vars_train = [word_ids, char_ids, char_mask, label_ids, essay_scores, learningrate]
+        input_vars_test = [word_ids, char_ids, char_mask, label_ids, essay_scores]
+        output_vars = [cost, predicted_labels, predicted_scores]
         self.train = theano.function(input_vars_train, output_vars, updates=updates, on_unused_input='ignore', allow_input_downcast = True, givens=({is_training: numpy.cast['int32'](1)}))
         self.test = theano.function(input_vars_test, output_vars, on_unused_input='ignore', allow_input_downcast = True, givens=({is_training: numpy.cast['int32'](0)}))
         self.test_return_probs = theano.function(input_vars_test, output_vars + [output_probs,], on_unused_input='ignore', allow_input_downcast = True, givens=({is_training: numpy.cast['int32'](0)}))

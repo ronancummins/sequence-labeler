@@ -3,6 +3,8 @@ import collections
 import numpy
 
 import conlleval
+from scipy.stats import spearmanr 
+from qw_kappa import quadratic_weighted_kappa
 
 class SequenceLabelingEvaluator(object):
     def __init__(self, main_label_id, label2id=None, conll_eval=False):
@@ -24,6 +26,9 @@ class SequenceLabelingEvaluator(object):
                 self.id2label[self.label2id[label]] = label
 
         self.conll_format = []
+	self.predicted_scores = []
+	self.essay_scores = []
+
 
     def append_data(self, cost, predicted_labels, word_ids, label_ids):
         self.cost_sum += cost
@@ -42,11 +47,32 @@ class SequenceLabelingEvaluator(object):
             self.conll_format.append("")
 
 
+    def append_aes_data(self, predicted_scores, essay_scores):
+	self.predicted_scores += predicted_scores
+	self.essay_scores += essay_scores
+
+    def rmse(self, gold, pred):
+	assert(len(gold) == len(pred))
+	sum = 0
+	for i in range(len(gold)):
+		sum += (float(gold[i])-float(pred[i]))**2.0
+	return (sum/len(gold))**0.5
+	
+    def spearman(self, gold, pred):
+	return spearmanr(gold,pred)
+
+    def qw_kappa(self, gold, pred, min_score, max_score):
+	return quadratic_weighted_kappa(gold, pred, min_score, max_score)
+
     def get_results(self, name):
         p = (float(self.main_correct_count) / float(self.main_predicted_count)) if (self.main_predicted_count > 0) else 0.0
         r = (float(self.main_correct_count) / float(self.main_total_count)) if (self.main_total_count > 0) else 0.0
         f = (2.0 * p * r / (p + r)) if (p+r > 0.0) else 0.0
         f05 = ((1.0 + 0.5*0.5) * p * r / ((0.5*0.5 * p) + r)) if (p+r > 0.0) else 0.0
+	
+	rms_error = self.rmse(self.essay_scores, self.predicted_scores)
+	qwk = self.qw_kappa(self.essay_scores, [int(round(i)) for i in self.predicted_scores],1,20)
+	spr = self.spearman(self.essay_scores, self.predicted_scores)
 
         results = collections.OrderedDict()
         results[name + "_cost_avg"] = self.cost_sum / float(self.token_count)
@@ -60,6 +86,9 @@ class SequenceLabelingEvaluator(object):
         results[name + "_f05"] = f05
         results[name + "_accuracy"] = self.correct_sum / float(self.token_count)
         results[name + "_token_count"] = self.token_count
+	results[name + "_rmse"] = rms_error
+	results[name + "_qwk"] = qwk
+	results[name + "_spearman"] = spr	
         results[name + "_time"] = float(time.time()) - float(self.start_time)
 
         if self.label2id is not None and self.conll_eval == True:

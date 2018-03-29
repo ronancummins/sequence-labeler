@@ -4,6 +4,7 @@ import sequence_labeling_experiment
 import numpy
 import collections
 import time
+import re
 
 def print_predictions(print_probs, sequencelabeler_model_path, input_file):
     time_loading = time.time()
@@ -21,9 +22,9 @@ def print_predictions(print_probs, sequencelabeler_model_path, input_file):
     batches_of_sentence_ids = sequence_labeling_experiment.create_batches_of_sentence_ids(sentences_test, config['max_batch_size'])
 
     for sentence_ids_in_batch in batches_of_sentence_ids:
-        word_ids, char_ids, char_mask, label_ids = sequence_labeling_experiment.create_feature_matrices_for_batch(sentences_test, sentence_ids_in_batch, config["word2id"], config["char2id"], config["label2id"], singletons=None, config=config)
+        word_ids, char_ids, char_mask, label_ids, essay_scores = sequence_labeling_experiment.create_feature_matrices_for_batch(sentences_test, sentence_ids_in_batch, config["word2id"], config["char2id"], config["label2id"], singletons=None, config=config)
 
-        cost, predicted_labels, predicted_probs = model.test_return_probs(word_ids, char_ids, char_mask, label_ids)
+        cost, predicted_labels, predicted_scores, predicted_probs = model.test_return_probs(word_ids, char_ids, char_mask, label_ids, essay_scores)
 
         assert(len(sentence_ids_in_batch) == word_ids.shape[0])
 
@@ -53,6 +54,8 @@ def print_predictions(print_probs, sequencelabeler_model_path, input_file):
                 sentence_id += 1
                 word_id = 0
                 continue
+	    if re.match("(TR|TE)[0-9]*\*[0-9]*\*[0-9]*\*[0-9]*",line):
+		continue
             assert(str(sentence_id) in predictions_cache)
             assert(len(predictions_cache[str(sentence_id)]) > word_id)
             print(line.strip() + "\t" + predictions_cache[str(sentence_id)][word_id].strip())

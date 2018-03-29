@@ -15,7 +15,7 @@ def create_birnn(input_tensor, input_size, mask, recurrent_size, return_combined
         return theano.tensor.concatenate([recurrent_forward.dimshuffle(1,0,2), recurrent_backward.dimshuffle(1,0,2)], axis=2)
 
 
-def create_lstm(input_tensor, input_size, mask, recurrent_size, only_return_final, go_backwards, fn_create_parameter_matrix, name):
+def create_lstm(input_tensor, input_size, mask, recurrent_size, only_return_final, go_backwards, fn_create_parameter_matrix, name, hidden_reset_token_id = 0):
     # LSTM. Following Graves et al.
     # "Hybrid speech recognition with deep bidirectional LSTM"
     def lstm_step(x, h_prev, c_prev, W_x, W_h, b, W_ci, W_cf, W_co):

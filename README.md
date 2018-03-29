@@ -1,11 +1,9 @@
 Sequence labeler
 =========================
 
-This is a neural network sequence labeling system. Given a sequence of tokens, it will learn to assign labels to each token. Can be used for named entity recognition, POS-tagging, error detection, chunking, CCG supertagging, etc.
-
-The main model implements a bidirectional LSTM for sequence tagging. In addition, you can incorporate character-level information -- either by concatenating a character-based representation, or by using an attention/gating mechanism for combining it with a word embedding.
-
-Run with:
+This is a multitask neural network sequence labeling system. Given a sequence of tokens, it will learn to assign labels to each token, but will also output a score at the end of each sequence. This is a modification of the original sequence labelling system such that it performs automated essay scoring while also taking into account grammatical error detection. 
+As before the main model implements a bidirectional LSTM for sequence tagging. The automated essay scoring part sums the hidden states of the bidirectional LSTM (in both directions) and the uses the concatenated vectors to feed into a output layer. 
+As before Run with:
 
     python sequence_labeling_experiment.py config.conf
 
@@ -20,31 +18,29 @@ Requirements
 * lasagne (tested with 0.1)
 
 
-Data format
+Data format 
 -------------------------
 
-The training and test data is expected in standard CoNLL-type tab-separated format. One word per line, separate column for token and label, empty line between sentences.
+The training and test data is slighly modified such that a score is assigned to an id of the sequence.
 
-For error detection, this would be something like:
+For multitask automatic essay scoring and error detection, this would be something like:
 
+    ID-1    7
     I       c
     saws    i
     the     c
     show    c
-    
 
-The first column is assumed to be the token and the last column is the label. There can be other columns in the middle, which are currently not used. For example:
-
-    EU      NNP     I-NP    S-ORG
-    rejects VBZ     I-VP    O
-    German  JJ      I-NP    S-MISC
-    call    NN      I-NP    O
-    to      TO      I-VP    O
-    boycott VB      I-VP    O
-    British JJ      I-NP    S-MISC
-    lamb    NN      I-NP    O
-    .       .       O       O
-    
+    ID-2    10
+    I       c
+    went    c 
+    to      c
+    see     c
+    a       c
+    movie   c
+    .       c
+    It      c
+    was     c	
 
 Configuration
 -------------------------
@@ -74,6 +70,7 @@ Edit the values in config.conf as needed:
 * **lmcost_gamma** - Weight for the language modeling loss. 
 * **lmcost_layer_size** = Hidden layer size for the language modeling loss.
 * **lmcost_max_vocab_size** = Maximum vocabulary size for the language modeling loss. The remaining words are mapped to a single entry.
+* **aescost_gamma** = Weight for the automatic essay scoring loss
 * **epochs** - Maximum number of epochs to run.
 * **best_model_selector** - What is measured on the dev set for model selection: "dev_conll_f:high" for NER and chunking, "dev_acc:high" for POS-tagging, "dev_f05:high" for error detection.
 * **stop_if_no_improvement_for_epochs** - Training will be stopped if there has been no improvement for n epochs.
