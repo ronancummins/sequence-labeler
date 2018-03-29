@@ -1,7 +1,6 @@
 import time
 import collections
 import numpy
-
 import conlleval
 from scipy.stats import spearmanr 
 from qw_kappa import quadratic_weighted_kappa
@@ -24,7 +23,6 @@ class SequenceLabelingEvaluator(object):
             self.id2label = collections.OrderedDict()
             for label in self.label2id:
                 self.id2label[self.label2id[label]] = label
-
         self.conll_format = []
 	self.predicted_scores = []
 	self.essay_scores = []
