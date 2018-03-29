@@ -50,12 +50,9 @@ def read_input_files(file_paths):
                     sentences.append((words, labels, essay_score))
                     words, labels = [], []
             if len(words) > 0:
-<<<<<<< HEAD
                 raise ValueError("The format expects an empty line at the end of the file in: " + file_path)
     print "answers read : %s" % ( ans) 
-=======
-                raise ValueError("The format expects an empty line at the end of the file in: " + str(file_path))
->>>>>>> 484a6beb1e2a2cccaac74ce717b1ee30c79fc8d8
+
     return sentences
 
 
@@ -146,16 +143,10 @@ def process_sentences(sequencelabeler, sentences, testing, learningrate, name, m
         if testing == True:
             cost, predicted_labels, predicted_scores = sequencelabeler.test(word_ids, char_ids, char_mask, label_ids, essay_scores)
         else:
-<<<<<<< HEAD
             cost, predicted_labels, predicted_scores = sequencelabeler.train(word_ids, char_ids, char_mask, label_ids, essay_scores, learningrate)
 	evaluator.append_data(cost, predicted_labels, word_ids, label_ids)
 	evaluator.append_aes_data(predicted_scores.tolist(), essay_scores.tolist())
-        
-=======
-            cost, predicted_labels = sequencelabeler.train(word_ids, char_ids, char_mask, label_ids, learningrate)
-        evaluator.append_data(cost, predicted_labels, word_ids, label_ids)
 
->>>>>>> 484a6beb1e2a2cccaac74ce717b1ee30c79fc8d8
         word_ids, char_ids, char_mask, label_ids = None, None, None, None
         while config["garbage_collection"] == True and gc.collect() > 0:
             pass
@@ -354,12 +345,9 @@ def run_experiment(config_path):
     if config["path_train"] is not None and len(config["path_train"]) > 0:
         best_selector_value = 0.0
         learningrate = config["learningrate"]
-<<<<<<< HEAD
+
         for epoch in xrange(config["epochs"]):
             sys.stdout.flush()
-=======
-        for epoch in range(config["epochs"]):
->>>>>>> 484a6beb1e2a2cccaac74ce717b1ee30c79fc8d8
             print("EPOCH: " + str(epoch))
             print("learningrate: " + str(learningrate))
             random.shuffle(sentences_train)
