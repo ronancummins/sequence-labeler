@@ -95,7 +95,8 @@ class SequenceLabeler(object):
 	    predicted_scores = 1.0 + theano.tensor.nnet.nnet.sigmoid(theano.tensor.dot(processed_tensor_aes, W_output_aes))*19.0	#score range 1-20
 	    cost += config["aescost_gamma"] * theano.tensor.sum((predicted_scores-essay_scores)**2.0)	#squared error over batch
 	else:
-	    predicted_scores = essay_scores
+	    predicted_scores = essay_scores*0.0
+	    	
 
         W_output = self.create_parameter_matrix('W_output', (processed_tensor_size, config["n_labels"]))
         bias_output = self.create_parameter_matrix('bias_output', (config["n_labels"],))

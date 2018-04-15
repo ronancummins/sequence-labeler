@@ -44,7 +44,7 @@ def read_input_files(file_paths):
                     	words.append(line_parts[0])
                     	labels.append(line_parts[-1])
 		    else:
-			essay_score = float(line_parts[1])
+			essay_score = float(line_parts[1])			
 			ans = ans +1		
                 elif len(line.strip()) == 0 and len(words) > 0:
                     sentences.append((words, labels, essay_score))
