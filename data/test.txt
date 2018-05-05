@@ -1,0 +1,44 @@
+TR*100	19
+An	c
+important	c 
+part	c
+of	c
+my	c
+life	c
+have	i 
+been	c
+the	c
+people	c
+who	c
+stood	c
+by	c
+me	c
+.	c
+I	c
+have	i
+been	c
+verily	i
+lucky	c
+.	c
+
+TR*101	12
+He	c
+gave	c
+his	c
+mother	c
+an	c
+extravagant	c
+gift	c
+after	c
+the	c
+argument	c
+.	i
+In	i
+spite	c
+of	c
+everything	c
+.	c
+
+
+
+
