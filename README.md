@@ -26,7 +26,7 @@ The latest cuDNN doesn't seem to behave well with the CRF implementation. If you
 Data format 
 -------------------------
 
-The training and test data is slighly modified such that a score is assigned to an id of the sequence.
+The training and test data is slighly modified such that a score is assigned to an id of the sequence. There are some example files in the data/ folder which shows the correct format.
 
 For multitask automatic essay scoring and error detection, this would be something like:
 
@@ -87,7 +87,7 @@ Edit the values in config.conf as needed:
 * **garbage_collection** - Whether garbage collection is explicitly called. Makes things slower but can operate with bigger models.
 * **random_seed** - Random seed for initialisation and data shuffling. This can affect results, so for robust conclusions I recommend running multiple experiments with different seeds and averaging the metrics.
 
-
+The config files for the multi-task automated essay scoring task are in the results directory (called baseline.aes.conf, multitask.aes.conf, multitask.aes.lmcost.conf respectively). These are the config files that generated the results for Table 3 in the paper **Neural Multi-task Learning in Automated Assessment**.
 
 Printing output
 -------------------------
@@ -110,6 +110,10 @@ This will print the individual probabilities for each of the possible labels.
 
 References
 -------------------------
+
+If you use the multi-task sequence labeling code, please reference:
+[**Neural Multi-task Learning in Automated Assessment**](https://arxiv.org/pdf/1801.06830.pdf)  
+Ronan Cummins and Marek Rei
 
 If you use the main sequence labeling code, please reference:
 
