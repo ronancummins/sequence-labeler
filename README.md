@@ -112,6 +112,8 @@ References
 -------------------------
 
 If you use the multi-task sequence labeling code, please reference:
+
+
 [**Neural Multi-task Learning in Automated Assessment**](https://arxiv.org/pdf/1801.06830.pdf)  
 Ronan Cummins and Marek Rei
 
