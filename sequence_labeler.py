@@ -90,7 +90,10 @@ class SequenceLabeler(object):
 
 	
 	if config["aescost_gamma"] > 0.0:
-	    processed_tensor_aes = theano.tensor.mean(processed_tensor, axis=1)	# mean pooling
+            if config["aes_max_pooling"]:
+	        processed_tensor_aes = theano.tensor.max(processed_tensor, axis=1)	# max pooling
+	    else:
+                processed_tensor_aes = theano.tensor.mean(processed_tensor, axis=1)	# mean pooling
 	    W_output_aes = self.create_parameter_matrix('W_output_aes', (processed_tensor_size))
 	    predicted_scores = 1.0 + theano.tensor.nnet.nnet.sigmoid(theano.tensor.dot(processed_tensor_aes, W_output_aes))*19.0	#score range 1-20
 	    cost += config["aescost_gamma"] * theano.tensor.sum((predicted_scores-essay_scores)**2.0)	#squared error over batch
